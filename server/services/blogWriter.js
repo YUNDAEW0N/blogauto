@@ -7,7 +7,10 @@
  * 추가 규칙을 얹는다 (buildCategoryRules).
  */
 
-const { runClaude, judgeImageFit } = require('./aiWriter');
+const fs = require('fs');
+const path = require('path');
+const { DATA_DIR } = require('../config');
+const { runClaude, judgeImageFit, extractJson } = require('./aiWriter');
 const { SENSITIVE_CATEGORIES } = require('./topicPlanner');
 
 /**
@@ -93,7 +96,8 @@ ${categoryRules}- 한 문장을 너무 길게 쓰지 말고(한 문장에 여러
 - keyPhrase: 제목 안에서 섬네일에 노란색으로 강조할 짧은 핵심 문구 (2~6글자, 제목에 실제로 포함된 단어여야 함)
 - hashtags: 네이버 블로그 태그로 쓸 키워드 12~18개 (핵심 키워드 위주, 본문에 실제 등장한 단어 위주)
 - 마지막 섹션은 짧은 마무리 문단으로 구성
-- 결과는 반드시 아래 JSON 형식으로만 출력 (설명, 코드블록 마크다운 없이 순수 JSON만)
+- 결과는 반드시 아래 JSON 형식으로만 출력 (설명, 코드블록 마크다운 없이 순수 JSON만). 파일로
+  저장하지 말고 반드시 표준출력(응답 텍스트)으로만 JSON을 출력할 것
 
 {
   "title": "블로그 글 제목",
@@ -109,12 +113,21 @@ ${sourcesBlock}
 `;
 
   const raw = await runClaude(prompt);
-  const cleaned = raw.replace(/```json|```/g, '').trim();
 
   try {
-    return JSON.parse(cleaned);
+    return extractJson(raw);
   } catch (e) {
-    throw new Error(`AI 응답을 JSON으로 파싱하지 못했습니다: ${e.message}\n원본 응답: ${raw.slice(0, 500)}`);
+    // 실패 원인 진단용으로 전체 원문을 파일로 남긴다 (에러 메시지에는 앞부분만 넣기엔
+    // 너무 잘려서 어디가 문제인지 알기 어려움).
+    const debugPath = path.join(DATA_DIR, 'last-ai-parse-error.txt');
+    try {
+      fs.writeFileSync(debugPath, raw);
+    } catch {
+      // 디버그 파일 저장 실패는 무시 (원본 에러 전달이 더 중요)
+    }
+    throw new Error(
+      `AI 응답을 JSON으로 파싱하지 못했습니다: ${e.message}\n원본 응답(앞부분): ${raw.slice(0, 500)}\n전체 원문: ${debugPath}`
+    );
   }
 }
 

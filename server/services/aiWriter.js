@@ -52,6 +52,65 @@ function runClaude(prompt, { timeoutMs = 3 * 60 * 1000 } = {}) {
   });
 }
 
+/**
+ * raw 문자열에서 첫 "{"부터 시작해서, 문자열 리터럴 안의 중괄호는 무시하고
+ * 중괄호 깊이가 다시 0으로 돌아오는 지점까지를 완결된 JSON 객체 하나로 본다.
+ * (raw.lastIndexOf('}')로 자르면, 그 뒤에 붙는 설명 문구 안에 우연히 "}"가
+ * 하나라도 섞여 있을 때 잘못된 범위를 잘라내게 되므로 이 방식이 더 안전하다)
+ */
+function findJsonObject(str) {
+  const start = str.indexOf('{');
+  if (start === -1) return null;
+
+  let depth = 0;
+  let inString = false;
+  let escapeNext = false;
+
+  for (let i = start; i < str.length; i++) {
+    const ch = str[i];
+    if (inString) {
+      if (escapeNext) escapeNext = false;
+      else if (ch === '\\') escapeNext = true;
+      else if (ch === '"') inString = false;
+      continue;
+    }
+    if (ch === '"') inString = true;
+    else if (ch === '{') depth++;
+    else if (ch === '}') {
+      depth--;
+      if (depth === 0) return str.slice(start, i + 1);
+    }
+  }
+  return null; // 중괄호가 안 닫힘 - 응답이 중간에 잘렸을 가능성
+}
+
+/**
+ * claude -p 응답에서 JSON을 뽑아낸다. 프롬프트에서 "순수 JSON만 출력"을
+ * 요청해도, 실제로는 앞뒤에 설명 문구가 붙는 경우가 있다 (예: CLI가 파일
+ * 저장을 시도했다가 권한이 없어 거부되면 "파일 저장 권한이 없어서 바로
+ * 결과를 아래에 출력합니다" 같은 안내를 JSON 앞에 붙이거나, JSON 뒤에
+ * 부연설명을 덧붙이는 경우). 단순 raw.replace(/```json|```/g, '') +
+ * JSON.parse 방식은 이런 앞뒤 텍스트 때문에 실패하므로, 코드블록 -> 중괄호
+ * 균형 추출 순으로 점점 관대하게 JSON을 찾아낸다.
+ */
+function extractJson(raw) {
+  const fenced = raw.match(/```(?:json)?\s*([\s\S]*?)```/i);
+  if (fenced) {
+    try {
+      return JSON.parse(fenced[1].trim());
+    } catch {
+      // 코드블록 안 내용도 깨져 있으면 아래 중괄호 균형 추출로 넘어간다.
+    }
+  }
+
+  const candidate = findJsonObject(raw);
+  if (candidate) {
+    return JSON.parse(candidate);
+  }
+
+  return JSON.parse(raw.trim());
+}
+
 function buildSourcesBlock(sources) {
   return sources.news
     .map((n, i) => `[뉴스 ${i + 1}] ${n.title}\n출처: ${n.source || '알수없음'}\n요약: ${n.summary}\n`)
@@ -88,10 +147,9 @@ ${sourcesBlock}
 `;
 
   const raw = await runClaude(prompt);
-  const cleaned = raw.replace(/```json|```/g, '').trim();
 
   try {
-    return JSON.parse(cleaned);
+    return extractJson(raw);
   } catch (e) {
     throw new Error(`AI 응답을 JSON으로 파싱하지 못했습니다: ${e.message}\n원본 응답: ${raw.slice(0, 500)}`);
   }
@@ -113,13 +171,12 @@ ${sectionContext}
 {"fits": true 또는 false, "reason": "간단한 이유"}
 `;
   const raw = await runClaude(prompt);
-  const cleaned = raw.replace(/```json|```/g, '').trim();
   try {
-    return JSON.parse(cleaned);
+    return extractJson(raw);
   } catch {
     // 파싱 실패 시 보수적으로 사용 보류
     return { fits: false, reason: 'AI 응답 파싱 실패' };
   }
 }
 
-module.exports = { draftPost, judgeImageFit, runClaude };
+module.exports = { draftPost, judgeImageFit, runClaude, extractJson };
