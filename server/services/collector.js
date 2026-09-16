@@ -30,6 +30,8 @@ const trendsParser = new Parser({
   customFields: {
     item: [
       ['ht:approx_traffic', 'approxTraffic'],
+      ['ht:picture', 'picture'],
+      ['ht:picture_source', 'pictureSource'],
       ['ht:news_item', 'newsItems', { keepArray: true }],
     ],
   },
@@ -94,11 +96,14 @@ async function collectTrendingSearches(limit = 20) {
       title: (n['ht:news_item_title'] || [])[0] || '',
       url: (n['ht:news_item_url'] || [])[0] || '',
       source: (n['ht:news_item_source'] || [])[0] || '',
+      picture: (n['ht:news_item_picture'] || [])[0] || '',
     }));
     return {
       type: 'trend',
       title: item.title || '',
       approxTraffic: item.approxTraffic || '',
+      picture: item.picture || '',
+      pictureSource: item.pictureSource || '',
       pubDate: item.pubDate || item.isoDate || '',
       newsItems,
     };

@@ -25,6 +25,7 @@ const statusLine = $('#statusLine');
 
 const TREND_CATEGORY = '이슈/트렌드';
 let selectedTrendKeyword = null;
+let selectedTrendImages = [];
 
 const sourcesPanel = $('#sourcesPanel');
 const newsList = $('#newsList');
@@ -79,6 +80,7 @@ function formatDetectedAt(detectedAt) {
 function renderTrendCandidates(candidates) {
   trendList.innerHTML = '';
   selectedTrendKeyword = null;
+  selectedTrendImages = [];
   generateTrendBtn.disabled = true;
   generateTrendBtn.textContent = '골라야 초안 작성 가능';
 
@@ -122,6 +124,7 @@ function renderTrendCandidates(candidates) {
 
     btn.addEventListener('click', () => {
       selectedTrendKeyword = c.keyword;
+      selectedTrendImages = Array.isArray(c.images) ? c.images : [];
       trendList.querySelectorAll('.trend-item').forEach((el) => el.classList.remove('selected'));
       btn.classList.add('selected');
       generateTrendBtn.disabled = false;
@@ -412,7 +415,7 @@ function onDraftReady(data, statusEl) {
   updatePublishBtnLabel();
 }
 
-async function runGenerate(keyword, category, triggerBtn) {
+async function runGenerate(keyword, category, triggerBtn, trendImages) {
   if (!keyword) {
     statusLine.textContent = '키워드를 입력(또는 선택)해주세요.';
     statusLine.className = 'status-line error';
@@ -430,7 +433,7 @@ async function runGenerate(keyword, category, triggerBtn) {
     const res = await fetch('/api/generate', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ keyword, category }),
+      body: JSON.stringify({ keyword, category, trendImages }),
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || '생성 실패');
@@ -448,7 +451,7 @@ generateBtn.addEventListener('click', () => {
 });
 
 generateTrendBtn.addEventListener('click', () => {
-  runGenerate(selectedTrendKeyword, TREND_CATEGORY, generateTrendBtn);
+  runGenerate(selectedTrendKeyword, TREND_CATEGORY, generateTrendBtn, selectedTrendImages);
 });
 
 generateTrendManualBtn.addEventListener('click', () => {

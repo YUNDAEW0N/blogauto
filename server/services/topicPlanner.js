@@ -224,14 +224,26 @@ function parseTraffic(approxTraffic) {
 
 /**
  * "이슈/트렌드" 후보 목록을 만든다. 구글 트렌드 한국 실시간 인기 검색어 중,
- * 최근에 추천하지 않았고 블록리스트에 안 걸리면서 관련 뉴스가 붙어 있는
- * (=쓸 거리가 있는) 트렌드만 남겨서 트래픽이 큰 순서로 정렬한다.
+ * 최근에 추천하지 않았고 (트렌드명+관련 뉴스 제목 모두 기준으로) 블록리스트에
+ * 안 걸리면서 관련 뉴스가 붙어 있는(=쓸 거리가 있는) 트렌드만 남겨서 트래픽이
+ * 큰 순서로 정렬한다.
  *
  * 트렌드명 자체를 keyword로 쓴다 ("미스터트롯4" 처럼) - "투표방법",
  * "구매방법" 같은 실제 검색 의도에 맞는 문구는 여기서 미리 만들지 않고,
  * blogWriter.js의 글 작성 단계에서 AI가 수집된 뉴스 맥락을 보고 제목/본문에
  * 자연스럽게 반영하도록 한다 (카테고리 규칙 참고).
  */
+/**
+ * 트렌드 자체(t.title)와 거기 딸린 관련 뉴스 제목까지 모두 블록리스트로 검사한다.
+ * 트렌드명("공무원" 등)은 그 자체로 무해해 보여도, 실제로 딸려오는 뉴스는
+ * 특검 수사·정치 공방처럼 민감한 내용일 수 있다 - 그런 뉴스를 근거로 글을
+ * 쓰게 되므로 트렌드명만 검사해서는 걸러지지 않는다.
+ */
+function isBlockedTrend(trend) {
+  const titles = [trend.title, ...(trend.newsItems || []).map((n) => n.title)];
+  return titles.some((title) => ISSUE_BLOCKLIST.some((word) => title.includes(word)));
+}
+
 async function getTrendCandidates(limit = 10) {
   const history = loadHistory();
   const usedKeywords = new Set(history.map((h) => h.keyword));
@@ -243,15 +255,42 @@ async function getTrendCandidates(limit = 10) {
 
   return trends
     .filter((t) => t.title && !usedKeywords.has(t.title))
-    .filter((t) => !ISSUE_BLOCKLIST.some((word) => t.title.includes(word)))
+    .filter((t) => !isBlockedTrend(t))
     .filter((t) => t.newsItems && t.newsItems.length > 0)
     .sort((a, b) => parseTraffic(b.approxTraffic) - parseTraffic(a.approxTraffic))
     .slice(0, limit);
 }
 
+/** 트렌드 객체 하나에서 실제 뉴스 사진 후보 목록을 뽑는다 (중복 URL 제거). */
+function buildImageCandidates(trend) {
+  const candidates = [];
+  if (trend.picture) {
+    candidates.push({ url: trend.picture, source: trend.pictureSource || '', sourceUrl: null });
+  }
+  (trend.newsItems || []).forEach((n) => {
+    if (n.picture) {
+      candidates.push({ url: n.picture, source: n.source || '', sourceUrl: n.url || null });
+    }
+  });
+
+  const seen = new Set();
+  return candidates.filter((c) => {
+    if (seen.has(c.url)) return false;
+    seen.add(c.url);
+    return true;
+  });
+}
+
 /**
  * 대시보드의 "이슈/트렌드" 후보 목록용 - 사람이 직접 고를 수 있게 여러 개를
  * 반환한다 (관련 뉴스 제목 1~2개를 곁들여서 어떤 화제인지 감을 잡을 수 있게).
+ *
+ * 실제 뉴스 사진 후보(images)도 이 시점에 같이 담아서 프론트로 내려보낸다.
+ * /api/generate 시점에 트렌드를 다시 조회해 이름으로 매칭하면, 그 사이
+ * 트렌드 목록이 바뀌어(보통 5~10분 주기) 방금 고른 트렌드가 최신 스냅샷에서
+ * 빠져 있을 수 있다 - 그러면 사진을 못 찾고 스톡 이미지로 새는 문제가 생긴다.
+ * 그래서 "고르는 시점"의 사진 정보를 그대로 들고 다니다가 생성 요청에
+ * 실어 보내는 방식으로 바꿨다.
  */
 async function listTrendCandidates(limit = 10) {
   const candidates = await getTrendCandidates(limit);
@@ -260,7 +299,25 @@ async function listTrendCandidates(limit = 10) {
     approxTraffic: t.approxTraffic,
     detectedAt: t.pubDate || null,
     sampleNews: t.newsItems.slice(0, 2).map((n) => n.title),
+    images: buildImageCandidates(t),
   }));
+}
+
+/**
+ * "이슈/트렌드" 글 작성 시 실제 뉴스 사진을 붙이기 위한 후보 목록 - keyword로
+ * 트렌드를 다시 찾아 조회하는 폴백 경로다 (예: 프론트가 images를 못 넘겨준
+ * 경우). 트렌드 목록은 5~10분 주기로 바뀌므로, 가능하면 이 함수 대신
+ * listTrendCandidates()가 고르는 시점에 함께 내려준 images를 그대로 쓰는
+ * 쪽(generate.js의 trendImages 파라미터)이 더 안정적이다.
+ */
+async function getTrendImageCandidates(keyword) {
+  const trends = await collectTrendingSearches(20).catch((e) => {
+    console.warn('[topicPlanner] 트렌드 이미지 조회용 수집 실패:', e.message);
+    return [];
+  });
+
+  const match = trends.find((t) => t.title === keyword);
+  return match ? buildImageCandidates(match) : [];
 }
 
 /** 자동 추천(부작용 없음): 후보 중 트래픽이 가장 큰 것 하나를 고른다. */
@@ -306,5 +363,6 @@ module.exports = {
   suggestNextKeyword,
   suggestTrendKeyword,
   listTrendCandidates,
+  getTrendImageCandidates,
   recordKeywordUsed,
 };

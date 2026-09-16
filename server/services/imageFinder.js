@@ -95,4 +95,4 @@ async function findAndVerifyImage(query, sectionContext, imageSource = 'auto') {
   return null; // 적합한 이미지를 찾지 못함
 }
 
-module.exports = { findAndVerifyImage };
+module.exports = { findAndVerifyImage, downloadImage };
