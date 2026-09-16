@@ -8,10 +8,18 @@ const imageSourceInput = $('#imageSourceInput');
 const autoPublishInput = $('#autoPublishInput');
 
 const categorySelect = $('#categorySelect');
+const keywordField = $('#keywordField');
 const keywordInput = $('#keywordInput');
 const suggestBtn = $('#suggestBtn');
 const generateBtn = $('#generateBtn');
+const trendField = $('#trendField');
+const trendList = $('#trendList');
+const trendRefreshBtn = $('#trendRefreshBtn');
+const generateTrendBtn = $('#generateTrendBtn');
 const statusLine = $('#statusLine');
+
+const TREND_CATEGORY = '이슈/트렌드';
+let selectedTrendKeyword = null;
 
 const sourcesPanel = $('#sourcesPanel');
 const newsList = $('#newsList');
@@ -49,7 +57,79 @@ async function loadCategories() {
     statusLine.textContent = `카테고리 목록을 불러오지 못했습니다: ${e.message}`;
     statusLine.className = 'status-line error';
   }
+  onCategoryChange();
 }
+
+function renderTrendCandidates(candidates) {
+  trendList.innerHTML = '';
+  selectedTrendKeyword = null;
+  generateTrendBtn.disabled = true;
+  generateTrendBtn.textContent = '골라야 초안 작성 가능';
+
+  if (!candidates.length) {
+    trendList.innerHTML = '<li class="trend-empty">지금은 쓸만한 실시간 이슈를 찾지 못했습니다. 잠시 후 새로고침 해보세요.</li>';
+    return;
+  }
+
+  candidates.forEach((c) => {
+    const li = document.createElement('li');
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'trend-item';
+
+    const title = document.createElement('span');
+    title.className = 'trend-keyword';
+    title.textContent = c.keyword;
+    btn.appendChild(title);
+
+    if (c.approxTraffic) {
+      const traffic = document.createElement('span');
+      traffic.className = 'trend-traffic';
+      traffic.textContent = `검색량 ${c.approxTraffic}`;
+      btn.appendChild(traffic);
+    }
+
+    if (c.sampleNews && c.sampleNews.length) {
+      const news = document.createElement('div');
+      news.className = 'trend-news';
+      news.textContent = c.sampleNews[0];
+      btn.appendChild(news);
+    }
+
+    btn.addEventListener('click', () => {
+      selectedTrendKeyword = c.keyword;
+      trendList.querySelectorAll('.trend-item').forEach((el) => el.classList.remove('selected'));
+      btn.classList.add('selected');
+      generateTrendBtn.disabled = false;
+      generateTrendBtn.textContent = `"${c.keyword}"로 초안 작성`;
+    });
+
+    li.appendChild(btn);
+    trendList.appendChild(li);
+  });
+}
+
+async function loadTrendCandidates() {
+  trendList.innerHTML = '<li class="trend-empty">실시간 인기 검색어 불러오는 중…</li>';
+  try {
+    const res = await fetch('/api/topic/trend-candidates');
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || '조회 실패');
+    renderTrendCandidates(data.candidates || []);
+  } catch (e) {
+    trendList.innerHTML = `<li class="trend-empty">불러오기 실패: ${e.message}</li>`;
+  }
+}
+
+function onCategoryChange() {
+  const isTrend = categorySelect.value === TREND_CATEGORY;
+  keywordField.classList.toggle('hidden', isTrend);
+  trendField.classList.toggle('hidden', !isTrend);
+  if (isTrend) loadTrendCandidates();
+}
+
+categorySelect.addEventListener('change', onCategoryChange);
+trendRefreshBtn.addEventListener('click', loadTrendCandidates);
 
 function pad2(n) {
   return String(n).padStart(2, '0');
@@ -260,15 +340,14 @@ function onDraftReady(data, statusEl) {
   updatePublishBtnLabel();
 }
 
-generateBtn.addEventListener('click', async () => {
-  const keyword = keywordInput.value.trim();
+async function runGenerate(keyword, category, triggerBtn) {
   if (!keyword) {
-    statusLine.textContent = '키워드를 입력해주세요.';
+    statusLine.textContent = '키워드를 입력(또는 선택)해주세요.';
     statusLine.className = 'status-line error';
     return;
   }
 
-  generateBtn.disabled = true;
+  triggerBtn.disabled = true;
   statusLine.className = 'status-line';
   statusLine.textContent = '뉴스 수집 중…';
   draftPanel.classList.add('hidden');
@@ -279,7 +358,7 @@ generateBtn.addEventListener('click', async () => {
     const res = await fetch('/api/generate', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ keyword, category: categorySelect.value }),
+      body: JSON.stringify({ keyword, category }),
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || '생성 실패');
@@ -288,8 +367,16 @@ generateBtn.addEventListener('click', async () => {
     statusLine.textContent = `오류: ${e.message}`;
     statusLine.className = 'status-line error';
   } finally {
-    generateBtn.disabled = false;
+    triggerBtn.disabled = false;
   }
+}
+
+generateBtn.addEventListener('click', () => {
+  runGenerate(keywordInput.value.trim(), categorySelect.value, generateBtn);
+});
+
+generateTrendBtn.addEventListener('click', () => {
+  runGenerate(selectedTrendKeyword, TREND_CATEGORY, generateTrendBtn);
 });
 
 publishBtn.addEventListener('click', async () => {

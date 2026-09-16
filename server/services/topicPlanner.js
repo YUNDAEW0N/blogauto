@@ -223,16 +223,16 @@ function parseTraffic(approxTraffic) {
 }
 
 /**
- * "이슈/트렌드" 전용: 구글 트렌드 한국 실시간 인기 검색어 중, 최근에 추천하지
- * 않았고 블록리스트에 안 걸리면서 관련 뉴스가 붙어 있는(=쓸 거리가 있는)
- * 트렌드를 트래픽이 큰 순서로 골라 추천한다.
+ * "이슈/트렌드" 후보 목록을 만든다. 구글 트렌드 한국 실시간 인기 검색어 중,
+ * 최근에 추천하지 않았고 블록리스트에 안 걸리면서 관련 뉴스가 붙어 있는
+ * (=쓸 거리가 있는) 트렌드만 남겨서 트래픽이 큰 순서로 정렬한다.
  *
- * 트렌드명 자체를 keyword로 반환한다 ("미스터트롯4" 처럼) - "투표방법",
+ * 트렌드명 자체를 keyword로 쓴다 ("미스터트롯4" 처럼) - "투표방법",
  * "구매방법" 같은 실제 검색 의도에 맞는 문구는 여기서 미리 만들지 않고,
  * blogWriter.js의 글 작성 단계에서 AI가 수집된 뉴스 맥락을 보고 제목/본문에
  * 자연스럽게 반영하도록 한다 (카테고리 규칙 참고).
  */
-async function suggestTrendKeyword() {
+async function getTrendCandidates(limit = 10) {
   const history = loadHistory();
   const usedKeywords = new Set(history.map((h) => h.keyword));
 
@@ -241,13 +241,30 @@ async function suggestTrendKeyword() {
     return [];
   });
 
-  const candidates = trends
+  return trends
     .filter((t) => t.title && !usedKeywords.has(t.title))
     .filter((t) => !ISSUE_BLOCKLIST.some((word) => t.title.includes(word)))
     .filter((t) => t.newsItems && t.newsItems.length > 0)
-    .sort((a, b) => parseTraffic(b.approxTraffic) - parseTraffic(a.approxTraffic));
+    .sort((a, b) => parseTraffic(b.approxTraffic) - parseTraffic(a.approxTraffic))
+    .slice(0, limit);
+}
 
-  const pick = candidates[0] || trends.find((t) => t.title && !usedKeywords.has(t.title));
+/**
+ * 대시보드의 "이슈/트렌드" 후보 목록용 - 사람이 직접 고를 수 있게 여러 개를
+ * 반환한다 (관련 뉴스 제목 1~2개를 곁들여서 어떤 화제인지 감을 잡을 수 있게).
+ */
+async function listTrendCandidates(limit = 10) {
+  const candidates = await getTrendCandidates(limit);
+  return candidates.map((t) => ({
+    keyword: t.title,
+    approxTraffic: t.approxTraffic,
+    sampleNews: t.newsItems.slice(0, 2).map((n) => n.title),
+  }));
+}
+
+/** 자동 추천(부작용 없음): 후보 중 트래픽이 가장 큰 것 하나를 고른다. */
+async function suggestTrendKeyword() {
+  const [pick] = await getTrendCandidates(1);
   if (!pick) return null;
 
   return {
@@ -287,5 +304,6 @@ module.exports = {
   SENSITIVE_CATEGORIES,
   suggestNextKeyword,
   suggestTrendKeyword,
+  listTrendCandidates,
   recordKeywordUsed,
 };

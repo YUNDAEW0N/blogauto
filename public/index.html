@@ -64,11 +64,23 @@
     <div class="prompt-card" id="promptCard">
       <label for="categorySelect" id="categoryLabel">카테고리</label>
       <select id="categorySelect" class="category-select"></select>
-      <label for="keywordInput" id="keywordLabel">키워드</label>
-      <div class="prompt-row">
-        <input type="text" id="keywordInput" placeholder="예: 인바디 체지방률 낮추는 법, 파킹통장 금리 비교…" />
-        <button id="suggestBtn" class="btn-quiet" type="button">다음 주제 추천</button>
-        <button id="generateBtn" class="btn-primary">글감 모으고 초안 쓰기</button>
+      <div id="keywordField">
+        <label for="keywordInput" id="keywordLabel">키워드</label>
+        <div class="prompt-row">
+          <input type="text" id="keywordInput" placeholder="예: 인바디 체지방률 낮추는 법, 파킹통장 금리 비교…" />
+          <button id="suggestBtn" class="btn-quiet" type="button">다음 주제 추천</button>
+          <button id="generateBtn" class="btn-primary">글감 모으고 초안 쓰기</button>
+        </div>
+      </div>
+      <div id="trendField" class="hidden">
+        <div class="trend-field-header">
+          <label id="trendLabel">지금 뜨는 실시간 이슈 중 하나를 골라주세요</label>
+          <button id="trendRefreshBtn" class="btn-quiet" type="button">새로고침</button>
+        </div>
+        <ul id="trendList" class="trend-list"></ul>
+        <div class="prompt-row">
+          <button id="generateTrendBtn" class="btn-primary" disabled>골라야 초안 작성 가능</button>
+        </div>
       </div>
       <p class="status-line" id="statusLine"></p>
     </div>

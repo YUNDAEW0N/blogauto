@@ -155,6 +155,29 @@ h1, h2, h3, .masthead-mark {
 
 .hidden { display: none !important; }
 
+/* ---------- 이슈/트렌드 후보 목록 ---------- */
+.trend-field-header { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+.trend-field-header label { margin: 0; }
+.trend-list { list-style: none; margin: 10px 0 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.trend-item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  background: #fff;
+  border: 1px solid var(--paper-line);
+  border-radius: 3px;
+  padding: 10px 14px;
+  cursor: pointer;
+  font-family: inherit;
+  color: var(--ink);
+}
+.trend-item:hover { border-color: var(--pen-soft); }
+.trend-item.selected { border-color: var(--pen); background: var(--jade-soft); }
+.trend-item .trend-keyword { font-size: 15px; font-weight: 600; }
+.trend-item .trend-traffic { font-size: 11px; color: var(--ink-soft); margin-left: 8px; font-weight: 400; }
+.trend-item .trend-news { font-size: 12px; color: var(--ink-soft); margin-top: 4px; }
+.trend-empty { font-size: 13px; color: var(--ink-soft); padding: 10px 0; }
+
 .sources-panel { margin-top: 32px; }
 .sources-panel h2 { font-size: 15px; margin-bottom: 12px; }
 .news-list-full { list-style: none; margin: 0; padding: 0; max-width: 640px; }
