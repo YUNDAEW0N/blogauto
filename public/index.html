@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>블로그 자동화</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+KR:wght@500;700&family=Pretendard:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+<div class="masthead">
+  <div class="masthead-mark">Multi.Blog</div>
+  <div class="masthead-text">
+    <h1>블로그 자동 발행</h1>
+    <p>건강정보 · 재테크 · IT정보 · 시사이슈 · 이슈/트렌드 카테고리 자동화 대시보드</p>
+  </div>
+  <div class="masthead-auth" id="authBox">
+    <span id="authStatus" class="auth-status">확인 중…</span>
+    <button id="authBtn" class="btn-quiet">네이버 로그인</button>
+  </div>
+</div>
+
+<main class="layout">
+
+  <aside class="steps">
+    <ol>
+      <li data-step="1" class="active"><span class="num">1</span>글감 수집</li>
+      <li data-step="2"><span class="num">2</span>초안 작성</li>
+      <li data-step="3"><span class="num">3</span>이미지 선별</li>
+      <li data-step="4"><span class="num">4</span>검토 &amp; 발행</li>
+    </ol>
+
+    <div class="settings">
+      <h2>설정</h2>
+      <label class="field">
+        <span>네이버 블로그 ID</span>
+        <input type="text" id="blogIdInput" placeholder="blog.naver.com/____" />
+      </label>
+      <label class="field">
+        <span>참고 블로그 ID (정보 다양성 참고용, 쉼표로 구분)</span>
+        <input type="text" id="referenceBlogIdsInput" placeholder="예: healthyblog1, fitlife_kim" />
+      </label>
+      <p class="hint">여기 등록한 블로그의 공식 RSS를 구독해서 뉴스 외 다양한 경험담/관점도 함께 참고합니다 (검색/스크래핑 아님).</p>
+      <label class="field">
+        <span>이미지 소스</span>
+        <select id="imageSourceInput">
+          <option value="auto">자동 (스톡 우선, 실패 시 AI)</option>
+          <option value="stock">무료 스톡 이미지만</option>
+          <option value="ai">AI 생성만</option>
+        </select>
+      </label>
+      <label class="field field-toggle">
+        <span>완전 자동 발행</span>
+        <input type="checkbox" id="autoPublishInput" />
+      </label>
+      <p class="hint" id="autoPublishHint">꺼져 있으면 검토 후 직접 발행 버튼을 눌러야 합니다.</p>
+    </div>
+  </aside>
+
+  <section class="workspace">
+
+    <div class="prompt-card" id="promptCard">
+      <label for="categorySelect" id="categoryLabel">카테고리</label>
+      <select id="categorySelect" class="category-select"></select>
+      <label for="keywordInput" id="keywordLabel">키워드</label>
+      <div class="prompt-row">
+        <input type="text" id="keywordInput" placeholder="예: 인바디 체지방률 낮추는 법, 파킹통장 금리 비교…" />
+        <button id="suggestBtn" class="btn-quiet" type="button">다음 주제 추천</button>
+        <button id="generateBtn" class="btn-primary">글감 모으고 초안 쓰기</button>
+      </div>
+      <p class="status-line" id="statusLine"></p>
+    </div>
+
+    <div id="sourcesPanel" class="sources-panel hidden">
+      <h2>수집된 뉴스</h2>
+      <ul id="newsList" class="news-list-full"></ul>
+    </div>
+
+    <div id="blogSourcesPanel" class="sources-panel hidden">
+      <h2>참고한 블로그 글</h2>
+      <ul id="blogList" class="news-list-full"></ul>
+    </div>
+
+    <article id="draftPanel" class="draft-panel hidden">
+      <div class="draft-header">
+        <h2 id="draftTitle" contenteditable="true"></h2>
+        <span class="draft-tag">초안 — 자유롭게 수정 가능</span>
+      </div>
+      <div class="thumbnail-block hidden" id="thumbnailBlock">
+        <span class="thumbnail-label">자동 생성된 섬네일</span>
+        <img id="thumbnailImg" alt="자동 생성 섬네일" />
+      </div>
+      <div id="draftSections"></div>
+      <div class="hashtag-block hidden" id="hashtagBlock">
+        <span class="hashtag-label">추천 태그</span>
+        <div id="hashtagList" class="hashtag-list"></div>
+      </div>
+
+      <div class="publish-row">
+        <label class="schedule-toggle">
+          <input type="checkbox" id="scheduleToggle" />
+          <span>예약 발행</span>
+        </label>
+        <input type="datetime-local" id="scheduleDateTime" class="hidden" />
+        <button id="publishBtn" class="btn-primary btn-publish">이 글 발행하기</button>
+        <span class="status-line" id="publishStatus"></span>
+      </div>
+    </article>
+
+  </section>
+</main>
+
+<script src="app.js"></script>
+</body>
+</html>

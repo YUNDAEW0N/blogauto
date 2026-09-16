@@ -1,0 +1,20 @@
+{
+  "name": "health-blog-automation",
+  "version": "0.1.0",
+  "description": "건강/피트니스/영양 니치 네이버 블로그 자동 작성/발행 도구 (Claude Code -p + Playwright)",
+  "type": "commonjs",
+  "main": "server/index.js",
+  "scripts": {
+    "start": "node server/index.js",
+    "dev": "node --watch server/index.js",
+    "postinstall": "playwright install chromium"
+  },
+  "dependencies": {
+    "cheerio": "^1.0.0",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "node-fetch": "^2.7.0",
+    "playwright": "^1.47.0",
+    "rss-parser": "^3.13.0"
+  }
+}
