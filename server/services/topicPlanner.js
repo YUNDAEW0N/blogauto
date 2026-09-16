@@ -258,6 +258,7 @@ async function listTrendCandidates(limit = 10) {
   return candidates.map((t) => ({
     keyword: t.title,
     approxTraffic: t.approxTraffic,
+    detectedAt: t.pubDate || null,
     sampleNews: t.newsItems.slice(0, 2).map((n) => n.title),
   }));
 }

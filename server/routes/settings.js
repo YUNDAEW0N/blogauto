@@ -1,9 +1,15 @@
 const express = require('express');
 const router = express.Router();
 const { loadSettings, saveSettings } = require('../config');
+const { RECOMMENDED_BLOGS } = require('../services/recommendedBlogs');
 
 router.get('/', (req, res) => {
   res.json(loadSettings());
+});
+
+/** GET /api/settings/recommended-blogs - 카테고리별 참고 블로그 기본 추천 목록 */
+router.get('/recommended-blogs', (req, res) => {
+  res.json({ recommendedBlogs: RECOMMENDED_BLOGS });
 });
 
 function normalizeBlogIds(value) {

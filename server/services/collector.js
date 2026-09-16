@@ -99,6 +99,7 @@ async function collectTrendingSearches(limit = 20) {
       type: 'trend',
       title: item.title || '',
       approxTraffic: item.approxTraffic || '',
+      pubDate: item.pubDate || item.isoDate || '',
       newsItems,
     };
   });

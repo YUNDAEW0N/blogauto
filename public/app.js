@@ -4,6 +4,7 @@ const authStatus = $('#authStatus');
 const authBtn = $('#authBtn');
 const blogIdInput = $('#blogIdInput');
 const referenceBlogIdsInput = $('#referenceBlogIdsInput');
+const recommendBlogBtns = $('#recommendBlogBtns');
 const imageSourceInput = $('#imageSourceInput');
 const autoPublishInput = $('#autoPublishInput');
 
@@ -16,6 +17,10 @@ const trendField = $('#trendField');
 const trendList = $('#trendList');
 const trendRefreshBtn = $('#trendRefreshBtn');
 const generateTrendBtn = $('#generateTrendBtn');
+const trendManualToggle = $('#trendManualToggle');
+const trendManualField = $('#trendManualField');
+const trendManualInput = $('#trendManualInput');
+const generateTrendManualBtn = $('#generateTrendManualBtn');
 const statusLine = $('#statusLine');
 
 const TREND_CATEGORY = '이슈/트렌드';
@@ -60,6 +65,17 @@ async function loadCategories() {
   onCategoryChange();
 }
 
+function formatDetectedAt(detectedAt) {
+  if (!detectedAt) return '';
+  const diffMs = Date.now() - new Date(detectedAt).getTime();
+  if (Number.isNaN(diffMs)) return '';
+  const minutes = Math.floor(diffMs / 60000);
+  if (minutes < 1) return '방금 감지';
+  if (minutes < 60) return `${minutes}분 전 감지`;
+  const hours = Math.floor(minutes / 60);
+  return `${hours}시간 전 감지`;
+}
+
 function renderTrendCandidates(candidates) {
   trendList.innerHTML = '';
   selectedTrendKeyword = null;
@@ -87,6 +103,14 @@ function renderTrendCandidates(candidates) {
       traffic.className = 'trend-traffic';
       traffic.textContent = `검색량 ${c.approxTraffic}`;
       btn.appendChild(traffic);
+    }
+
+    const detected = formatDetectedAt(c.detectedAt);
+    if (detected) {
+      const detectedEl = document.createElement('span');
+      detectedEl.className = 'trend-traffic';
+      detectedEl.textContent = detected;
+      btn.appendChild(detectedEl);
     }
 
     if (c.sampleNews && c.sampleNews.length) {
@@ -125,11 +149,23 @@ function onCategoryChange() {
   const isTrend = categorySelect.value === TREND_CATEGORY;
   keywordField.classList.toggle('hidden', isTrend);
   trendField.classList.toggle('hidden', !isTrend);
-  if (isTrend) loadTrendCandidates();
+  if (isTrend) {
+    loadTrendCandidates();
+    trendManualField.classList.add('hidden');
+    trendManualInput.value = '';
+    trendManualToggle.textContent = '마음에 드는 게 없나요? 직접 입력하기';
+  }
 }
 
 categorySelect.addEventListener('change', onCategoryChange);
 trendRefreshBtn.addEventListener('click', loadTrendCandidates);
+
+trendManualToggle.addEventListener('click', () => {
+  const nowHidden = trendManualField.classList.toggle('hidden');
+  trendManualToggle.textContent = nowHidden
+    ? '마음에 드는 게 없나요? 직접 입력하기'
+    : '추천 목록에서 다시 고르기';
+});
 
 function pad2(n) {
   return String(n).padStart(2, '0');
@@ -183,6 +219,42 @@ async function loadSettings() {
   referenceBlogIdsInput.value = (s.naverReferenceBlogIds || []).join(', ');
   imageSourceInput.value = s.imageSource || 'auto';
   autoPublishInput.checked = !!s.autoPublish;
+}
+
+function currentReferenceIds() {
+  return referenceBlogIdsInput.value
+    .split(',')
+    .map((id) => id.trim())
+    .filter(Boolean);
+}
+
+async function loadRecommendedBlogButtons() {
+  try {
+    const res = await fetch('/api/settings/recommended-blogs');
+    const data = await res.json();
+    const groups = data.recommendedBlogs || {};
+
+    recommendBlogBtns.innerHTML = '';
+    Object.entries(groups).forEach(([category, blogs]) => {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'btn-quiet';
+      btn.textContent = category;
+      btn.title = blogs.map((b) => `${b.name} (${b.id})`).join('\n');
+
+      btn.addEventListener('click', () => {
+        const existing = new Set(currentReferenceIds());
+        blogs.forEach((b) => existing.add(b.id));
+        referenceBlogIdsInput.value = Array.from(existing).join(', ');
+        saveSettings();
+        btn.classList.add('added');
+      });
+
+      recommendBlogBtns.appendChild(btn);
+    });
+  } catch (e) {
+    recommendBlogBtns.innerHTML = `<span class="hint">추천 목록을 불러오지 못했습니다: ${e.message}</span>`;
+  }
 }
 
 async function saveSettings() {
@@ -379,6 +451,10 @@ generateTrendBtn.addEventListener('click', () => {
   runGenerate(selectedTrendKeyword, TREND_CATEGORY, generateTrendBtn);
 });
 
+generateTrendManualBtn.addEventListener('click', () => {
+  runGenerate(trendManualInput.value.trim(), TREND_CATEGORY, generateTrendManualBtn);
+});
+
 publishBtn.addEventListener('click', async () => {
   if (!currentDraft) return;
 
@@ -439,3 +515,4 @@ publishBtn.addEventListener('click', async () => {
 refreshAuthStatus();
 loadSettings();
 loadCategories();
+loadRecommendedBlogButtons();

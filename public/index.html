@@ -43,6 +43,10 @@
         <input type="text" id="referenceBlogIdsInput" placeholder="예: healthyblog1, fitlife_kim" />
       </label>
       <p class="hint">여기 등록한 블로그의 공식 RSS를 구독해서 뉴스 외 다양한 경험담/관점도 함께 참고합니다 (검색/스크래핑 아님).</p>
+      <div class="recommend-blogs">
+        <span class="recommend-blogs-label">추천 블로그 불러오기</span>
+        <div id="recommendBlogBtns" class="recommend-blogs-btns"></div>
+      </div>
       <label class="field">
         <span>이미지 소스</span>
         <select id="imageSourceInput">
@@ -77,9 +81,18 @@
           <label id="trendLabel">지금 뜨는 실시간 이슈 중 하나를 골라주세요</label>
           <button id="trendRefreshBtn" class="btn-quiet" type="button">새로고침</button>
         </div>
+        <p class="hint">구글 트렌드 실시간 검색어는 보통 5~10분 간격으로 새 항목이 올라옵니다. 각 항목의 "n분 전 감지"를 보면 방금 새로고침해도 목록이 똑같은 게 정상인지 알 수 있어요.</p>
         <ul id="trendList" class="trend-list"></ul>
         <div class="prompt-row">
           <button id="generateTrendBtn" class="btn-primary" disabled>골라야 초안 작성 가능</button>
+        </div>
+        <button id="trendManualToggle" class="btn-link" type="button">마음에 드는 게 없나요? 직접 입력하기</button>
+        <div id="trendManualField" class="hidden">
+          <label for="trendManualInput" id="trendManualLabel">직접 입력한 키워드도 "이슈/트렌드" 스타일로 작성됩니다</label>
+          <div class="prompt-row">
+            <input type="text" id="trendManualInput" placeholder="예: OOO 콘서트 티켓팅 방법" />
+            <button id="generateTrendManualBtn" class="btn-primary">이 키워드로 초안 작성</button>
+          </div>
         </div>
       </div>
       <p class="status-line" id="statusLine"></p>
