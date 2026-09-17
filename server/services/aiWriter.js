@@ -85,6 +85,67 @@ function findJsonObject(str) {
 }
 
 /**
+ * 문자열 리터럴 "안"에 있는 raw 제어문자(개행/탭 등)를 JSON이 허용하는
+ * 이스케이프 시퀀스로 바꿔준다. AI가 body 텍스트의 문단 구분을 \n\n으로
+ * 이스케이프하라고 지시받아도, 실제로는 이스케이프 없이 진짜 개행 문자를
+ * 그대로 출력하는 경우가 있어 JSON.parse가 "Bad control character"로
+ * 실패한다. 이미 올바르게 이스케이프된 JSON(\\n 등)은 백슬래시 뒤 문자를
+ * 그대로 통과시키므로 이 보정을 거쳐도 그대로 유지된다.
+ */
+function escapeRawControlCharsInStrings(str) {
+  let out = '';
+  let inString = false;
+  let escapeNext = false;
+
+  for (let i = 0; i < str.length; i++) {
+    const ch = str[i];
+    if (!inString) {
+      if (ch === '"') inString = true;
+      out += ch;
+      continue;
+    }
+
+    if (escapeNext) {
+      out += ch;
+      escapeNext = false;
+      continue;
+    }
+    if (ch === '\\') {
+      out += ch;
+      escapeNext = true;
+      continue;
+    }
+    if (ch === '"') {
+      inString = false;
+      out += ch;
+      continue;
+    }
+
+    const code = ch.charCodeAt(0);
+    if (code < 0x20) {
+      if (ch === '\n') out += '\\n';
+      else if (ch === '\r') out += '\\r';
+      else if (ch === '\t') out += '\\t';
+      else out += '\\u' + code.toString(16).padStart(4, '0');
+      continue;
+    }
+    out += ch;
+  }
+
+  return out;
+}
+
+/** JSON.parse를 시도하고, 제어문자 때문에 실패하면 보정 후 한 번 더 시도한다. */
+function parseJsonLenient(candidate) {
+  try {
+    return JSON.parse(candidate);
+  } catch (e) {
+    if (!/control character/i.test(e.message)) throw e;
+    return JSON.parse(escapeRawControlCharsInStrings(candidate));
+  }
+}
+
+/**
  * claude -p 응답에서 JSON을 뽑아낸다. 프롬프트에서 "순수 JSON만 출력"을
  * 요청해도, 실제로는 앞뒤에 설명 문구가 붙는 경우가 있다 (예: CLI가 파일
  * 저장을 시도했다가 권한이 없어 거부되면 "파일 저장 권한이 없어서 바로
@@ -97,7 +158,7 @@ function extractJson(raw) {
   const fenced = raw.match(/```(?:json)?\s*([\s\S]*?)```/i);
   if (fenced) {
     try {
-      return JSON.parse(fenced[1].trim());
+      return parseJsonLenient(fenced[1].trim());
     } catch {
       // 코드블록 안 내용도 깨져 있으면 아래 중괄호 균형 추출로 넘어간다.
     }
@@ -105,10 +166,10 @@ function extractJson(raw) {
 
   const candidate = findJsonObject(raw);
   if (candidate) {
-    return JSON.parse(candidate);
+    return parseJsonLenient(candidate);
   }
 
-  return JSON.parse(raw.trim());
+  return parseJsonLenient(raw.trim());
 }
 
 function buildSourcesBlock(sources) {
